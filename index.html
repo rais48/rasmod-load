@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Rasmodium Loading</title>
+    <style>
+        /* --- ШРИФТЫ И БАЗА --- */
+        @font-face {
+            font-family: 'Bahnschrift';
+            src: local('Bahnschrift'), local('Arial'); /* Если нет Bahnschrift, будет Arial */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgb(5, 3, 15); /* Цвет background из Lua */
+            font-family: 'Bahnschrift', sans-serif;
+            overflow: hidden;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* --- ФОНОВЫЕ ЭФФЕКТЫ (СВЕЧЕНИЕ И ВИНЬЕТКА) --- */
+        .background-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            /* Имитация центрального свечения из Lua */
+            background: radial-gradient(circle at center, rgba(155, 65, 220, 0.15) 0%, rgba(5, 3, 15, 1) 60%);
+            z-index: 1;
+        }
+
+        .vignette {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.9);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* --- ЗВЕЗДЫ И ЧАСТИЦЫ --- */
+        #particles-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle infinite alternate;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0;
+            animation: floatUp linear infinite;
+        }
+
+        /* --- ЦЕНТРАЛЬНОЕ МЕНЮ --- */
+        .content {
+            z-index: 10;
+            text-align: center;
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Логотип */
+        h1 {
+            font-size: 72px;
+            font-weight: 800;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(155, 65, 220, 0.5); /* Accent Glow */
+        }
+
+        .text-accent { color: rgb(200, 120, 255); } /* AccentBright */
+        .text-white { color: white; }
+
+        /* Подзаголовок (Карта и режим) */
+        h2 {
+            font-size: 18px;
+            font-weight: 300;
+            color: rgb(140, 130, 170); /* TextDim */
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Линия разделитель */
+        .divider {
+            height: 2px;
+            width: 100%;
+            max-width: 500px;
+            margin: 20px 0;
+            background: linear-gradient(90deg, transparent, rgb(155, 65, 220), transparent);
+            position: relative;
+        }
+        
+        /* Блик на линии */
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 0;
+            width: 10px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: lineRun 4s infinite linear;
+            filter: blur(2px);
+        }
+
+        /* --- БЛОК ЗАГРУЗКИ (Стиль кнопок из Lua) --- */
+        .loading-box {
+            margin-top: 30px;
+            padding: 15px 40px;
+            background: rgba(80, 30, 140, 0.2); /* AccentDark */
+            border: 1px solid rgba(155, 65, 220, 0.3);
+            border-radius: 6px;
+            min-width: 300px;
+            position: relative;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(155, 65, 220, 0.1);
+            transition: all 0.3s;
+        }
+
+        .status-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgb(255, 255, 255);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgb(200, 120, 255); /* AccentBright */
+            width: 0%; 
+            transition: width 0.5s;
+            box-shadow: 0 0 10px rgb(200, 120, 255);
+        }
+
+        /* --- АНИМАЦИИ --- */
+        @keyframes twinkle {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.2); }
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(105vh) scale(0.8); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+        }
+
+        @keyframes lineRun {
+            0% { left: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="background-glow"></div>
+    <div class="vignette"></div>
+    <div id="particles-container"></div>
+
+    <div class="content">
+        <!-- Логотип: Ras (фиолетовый) modium (белый) -->
+        <h1><span class="text-accent">Ras</span><span class="text-white">modium</span></h1>
+        
+        <!-- Подзаголовок -->
+        <h2 id="server-info">GARRYS MOD • LOADING...</h2>
+
+        <!-- Разделительная линия -->
+        <div class="divider"></div>
+
+        <!-- Блок статуса (в стиле кнопок меню) -->
+        <div class="loading-box">
+            <div class="status-text" id="status">Подключение к серверу...</div>
+            <div class="progress-bar" id="load-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        /* --- ГЕНЕРАЦИЯ ЧАСТИЦ (Как в InitParticles Lua) --- */
+        const container = document.getElementById('particles-container');
+        const colors = ['rgb(155, 65, 220)', 'rgb(100, 200, 255)', 'rgb(255, 100, 180)']; // particle1, 2, 3
+
+        // Создаем звезды
+        for(let i=0; i<60; i++) {
+            let star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + 'vw';
+            star.style.top = Math.random() * 100 + 'vh';
+            let size = Math.random() * 2 + 1;
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            container.appendChild(star);
+        }
+
+        // Создаем плавающие частицы
+        for(let i=0; i<40; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            let color = colors[Math.floor(Math.random() * colors.length)];
+            p.style.backgroundColor = color;
+            p.style.boxShadow = `0 0 10px ${color}`;
+            
+            p.style.left = Math.random() * 100 + 'vw';
+            let size = Math.random() * 4 + 2;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            
+            // Рандомная анимация
+            p.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            p.style.animationDelay = (Math.random() * 20) * -1 + 's'; // Чтобы они были на экране сразу
+            
+            container.appendChild(p);
+        }
+
+        /* --- ЛОГИКА GMOD --- */
+        let filesTotal = 50; // Примерное кол-во файлов (для красоты полоски)
+        let filesDownloaded = 0;
+
+        function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode) {
+            document.getElementById("server-info").innerText = (gamemode + " • " + mapname).toUpperCase();
+        }
+
+        function DownloadingFile(fileName) {
+            filesDownloaded++;
+            document.getElementById("status").innerText = "Загрузка: " + fileName;
+            
+            // Двигаем полоску (фейковый прогресс, так как реальный GMod не дает)
+            let percent = Math.min((filesDownloaded / filesTotal) * 100, 100);
+            document.getElementById("load-bar").style.width = percent + "%";
+            
+            // Если файлов больше, увеличиваем лимит
+            if(filesDownloaded > filesTotal) filesTotal += 10;
+        }
+
+        function SetStatusChanged(status) {
+            document.getElementById("status").innerText = status;
+            // Если статус Sending Client Info - значит почти всё
+            if(status.indexOf("Sending Client Info") >= 0) {
+                document.getElementById("load-bar").style.width = "100%";
+            }
+        }
+    </script>
+</body>
+</html>
