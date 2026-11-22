@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rasmodium — Loading</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #03060A;
+    color: #B2B5B8;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* --- Фон: мягкое свечение + затемнение слева, как в меню --- */
+  .glow {
+    position: fixed;
+    width: 70vmax; height: 70vmax;
+    right: -20vmax; top: 50%;
+    transform: translateY(-50%);
+    background: radial-gradient(circle, rgba(110,70,255,0.10) 0%, rgba(110,70,255,0.03) 40%, transparent 70%);
+    pointer-events: none;
+  }
+  .shade {
+    position: fixed; inset: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 55%, rgba(0,0,0,0.05) 100%);
+    pointer-events: none;
+  }
+
+  /* --- Кольца Aperture на фоне --- */
+  .rings {
+    position: fixed;
+    right: -16vw; top: 50%;
+    transform: translateY(-50%);
+    width: 58vw; height: 58vw;
+    pointer-events: none;
+  }
+  .ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.05);
+  }
+  .ring.r2 { inset: 13%; border-color: rgba(110,70,255,0.14); animation: spin 90s linear infinite; }
+  .ring.r3 { inset: 27%; border-color: rgba(255,255,255,0.04); animation: spin 60s linear infinite reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* --- Шапка: бренд + сплэш + инфо о сервере --- */
+  header {
+    position: fixed;
+    left: 10.5%; top: 7%;
+    z-index: 2;
+  }
+  h1 {
+    font-size: clamp(52px, 8.5vw, 104px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #F5F6F7;
+  }
+  h1 .accent { color: #6E46FF; }
+
+  #splash {
+    margin-top: 10px;
+    font-size: clamp(11px, 1.3vw, 15px);
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8B949E;
+  }
+
+  .server { margin-top: 34px; }
+  #serverName {
+    font-size: clamp(16px, 1.8vw, 21px);
+    font-weight: 700;
+    color: #F5F6F7;
+  }
+  #serverMeta {
+    margin-top: 5px;
+    font-size: clamp(10px, 1.1vw, 13px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #8B949E;
+  }
+  #serverUrl {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #6E46FF;
+    display: none;
+  }
+
+  /* --- Нижний блок: совет, статус, прогресс --- */
+  .bottom {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    padding: 0 10.5% 30px;
+    z-index: 2;
+  }
+  #tip {
+    font-size: clamp(11px, 1.2vw, 14px);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #8B949E;
+    margin-bottom: 10px;
+    transition: opacity 0.5s ease;
+  }
+  #tip b { color: #6E46FF; font-weight: 700; }
+  #status {
+    font-size: clamp(14px, 1.6vw, 18px);
+    font-weight: 500;
+    color: #F5F6F7;
+    margin-bottom: 12px;
+  }
+  .bar {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #6E46FF, #9B7BFF);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    position: relative;
+  }
+  #fill::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    animation: shimmer 1.8s linear infinite;
+  }
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+  .bar-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 9px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #8B949E;
+  }
+  #pct { color: #F5F6F7; font-weight: 700; }
+
+  /* --- Кнопка музыки --- */
+  #muteBtn {
+    position: fixed;
+    top: 22px; right: 24px;
+    z-index: 3;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.16);
+    color: #B2B5B8;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    padding: 9px 15px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  #muteBtn:hover { color: #F5F6F7; border-color: rgba(110,70,255,0.6); }
+</style>
+</head>
+<body>
+
+  <div class="glow"></div>
+  <div class="rings">
+    <div class="ring"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+  </div>
+  <div class="shade"></div>
+
+  <header>
+    <h1><span class="accent">Ras</span>modium</h1>
+    <div id="splash"></div>
+    <div class="server">
+      <div id="serverName">Rasmodium</div>
+      <div id="serverMeta">Connecting...</div>
+      <div id="serverUrl"></div>
+    </div>
+  </header>
+
+  <div class="bottom">
+    <div id="tip"></div>
+    <div id="status">Connecting to server...</div>
+    <div class="bar"><div id="fill"></div></div>
+    <div class="bar-meta">
+      <span id="files"></span>
+      <span id="pct">0%</span>
+    </div>
+  </div>
+
+  <button id="muteBtn">&#9834; MUSIC: ON</button>
+
+  <!--
+    МУЗЫКА НА ФОНЕ:
+    1) Положи файл music.ogg (или music.mp3) РЯДОМ с этим loading.html на хостинге
+       и оставь src="music.ogg" — всё.
+    2) Или впиши прямую ссылку на аудиофайл: src="https://твой-сайт/track.mp3"
+    3) Громкость меняется в JS ниже: bgm.volume = 0.4 (0.0 — 1.0).
+  -->
+  <audio id="bgm" src="music.ogg" loop preload="auto"></audio>
+
+<script>
+  // ---------- Случайный сплэш (тот же список, что в меню) ----------
+  var splashes = [
+    "LIKE HOMICIDED",
+    "PLUV PLUV PLUVISKI",
+    "LULU IS NOT DEAD | !PLUV",
+    "THE TRAITOR WAS KILLED",
+    "NAB HOMICIDE SERVER",
+    "ALSO TRY MODDED HOMICIDE 2",
+    "HOP ON Z-CITY",
+    "JOHN Z-CITY",
+    ":PLUVRARE:",
+    "SAW51 IS REAL",
+    "MORE SMALLTOWN",
+    "MORE CLUE2022",
+    "BACKROOMS == CLUE",
+    "HELL IS NEAR",
+    "I WISH YOU GOOD HEALTH, JASON STATHAM"
+  ];
+  document.getElementById('splash').textContent =
+    splashes[Math.floor(Math.random() * splashes.length)];
+
+  // ---------- Сменяющиеся советы ----------
+  var tips = [
+    "THE CAKE IS A LIE",
+    "PRESS M TO MUTE THE MUSIC",
+    "CHECK THE DISCORD FOR UPDATES",
+    "THE TRAITOR WAS KILLED",
+    "HOP ON Z-CITY",
+    "STAY HYDRATED, JASON STATHAM",
+    "ALSO TRY MODDED HOMICIDE 2",
+    "PLUV PLUV PLUVISKI"
+  ];
+  var tipEl = document.getElementById('tip');
+  var tipIndex = 0;
+  function showTip() {
+    tipEl.style.opacity = 0;
+    setTimeout(function () {
+      tipEl.innerHTML = "<b>TIP:</b> " + tips[tipIndex];
+      tipEl.style.opacity = 1;
+      tipIndex = (tipIndex + 1) % tips.length;
+    }, 500);
+  }
+  showTip();
+  setInterval(showTip, 6000);
+
+  // ---------- Garry's Mod Loading API ----------
+  var fillEl    = document.getElementById('fill');
+  var pctEl     = document.getElementById('pct');
+  var filesEl   = document.getElementById('files');
+  var statusEl  = document.getElementById('status');
+  var nameEl    = document.getElementById('serverName');
+  var metaEl    = document.getElementById('serverMeta');
+  var urlEl     = document.getElementById('serverUrl');
+
+  var filesTotal = 0, filesNeeded = 0;
+  var mapName = "", gamemodeName = "";
+  var apiCalled = false;
+
+  function markApi() { apiCalled = true; }
+
+  function updateMeta() {
+    var parts = [];
+    if (mapName) parts.push(mapName);
+    if (gamemodeName) parts.push(gamemodeName);
+    metaEl.textContent = parts.length ? parts.join("  •  ") : "Connecting...";
+  }
+
+  function updateProgress() {
+    var p = 0;
+    if (filesTotal > 0) {
+      p = Math.round((filesTotal - filesNeeded) / filesTotal * 100);
+      filesEl.textContent = "FILES: " + (filesTotal - filesNeeded) + " / " + filesTotal;
+    } else {
+      filesEl.textContent = "";
+    }
+    fillEl.style.width = p + "%";
+    pctEl.textContent = p + "%";
+  }
+
+  window.SetStatusChanged = function (status) {
+    markApi();
+    statusEl.textContent = status;
+  };
+  window.SetFilesTotal = function (total) {
+    markApi();
+    filesTotal = total;
+    updateProgress();
+  };
+  window.SetFilesNeeded = function (needed) {
+    markApi();
+    filesNeeded = needed;
+    updateProgress();
+  };
+  window.SetServerName = function (name) {
+    markApi();
+    nameEl.textContent = name;
+  };
+  window.SetServerURL = function (url) {
+    markApi();
+    urlEl.textContent = url;
+    urlEl.style.display = url ? "block" : "none";
+  };
+  window.SetMapName = function (map) {
+    markApi();
+    mapName = map;
+    updateMeta();
+  };
+  window.SetGamemodeName = function (gm) {
+    markApi();
+    gamemodeName = gm;
+    updateMeta();
+  };
+
+  // ---------- Демо-прогресс для проверки в обычном браузере ----------
+  // В игре GMod сразу вызывает API выше, поэтому демо не запустится.
+  setTimeout(function () {
+    if (apiCalled) return;
+    var p = 0;
+    var iv = setInterval(function () {
+      p += Math.random() * 4;
+      if (p >= 100) { p = 100; clearInterval(iv); }
+      fillEl.style.width = p + "%";
+      pctEl.textContent = Math.floor(p) + "%";
+    }, 120);
+  }, 4000);
+
+  // ---------- Фоновая музыка ----------
+  var bgm = document.getElementById('bgm');
+  var muteBtn = document.getElementById('muteBtn');
+  bgm.volume = 0.4; // громкость: 0.0 — 1.0
+
+  function tryPlay() {
+    if (!bgm.paused) return;
+    var pr = bgm.play();
+    if (pr && pr.catch) pr.catch(function () { /* браузер ждёт взаимодействия */ });
+  }
+  tryPlay();
+  // Если автоплей заблокировали — музыка стартует по первому клику/клавише
+  document.addEventListener('click', tryPlay);
+  document.addEventListener('keydown', tryPlay);
+
+  function toggleMute() {
+    bgm.muted = !bgm.muted;
+    muteBtn.innerHTML = bgm.muted ? "&#9834; MUSIC: OFF" : "&#9834; MUSIC: ON";
+  }
+  muteBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    toggleMute();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь') toggleMute();
+  });
+</script>
+</body>
+</html>
