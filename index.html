@@ -202,12 +202,12 @@
 
   <!--
     МУЗЫКА НА ФОНЕ:
-    1) Положи файл music.ogg (или music.mp3) РЯДОМ с этим loading.html на хостинге
-       и оставь src="music.ogg" — всё.
-    2) Или впиши прямую ссылку на аудиофайл: src="https://твой-сайт/track.mp3"
-    3) Громкость меняется в JS ниже: bgm.volume = 0.4 (0.0 — 1.0).
+    Файл music.mp3 лежит рядом с этим index.html — больше ничего делать не нужно.
+    Скрипт ниже сам перебирает список TRACKS (music.mp3, music/GTA_V.mp3, music.ogg ...)
+    и включает первый найденный. Переименовал трек — допиши имя в начало TRACKS.
+    Громкость: VOLUME = 0.4 (0.0 — 1.0).
   -->
-  <audio id="bgm" src="music/GTA_V.mp3" loop preload="auto"></audio>
+  <audio id="bgm" loop preload="auto" playsinline autoplay></audio>
 
 <script>
   // ---------- Случайный сплэш (тот же список, что в меню) ----------
@@ -323,31 +323,144 @@
   }, 4000);
 
   // ---------- Фоновая музыка ----------
-  var bgm = document.getElementById('bgm');
-  var muteBtn = document.getElementById('muteBtn');
-  bgm.volume = 0.4; // громкость: 0.0 — 1.0
+  (function () {
+    var bgm = document.getElementById('bgm');
+    var muteBtn = document.getElementById('muteBtn');
 
-  function tryPlay() {
-    if (!bgm.paused) return;
-    var pr = bgm.play();
-    if (pr && pr.catch) pr.catch(function () { /* браузер ждёт взаимодействия */ });
-  }
-  tryPlay();
-  // Если автоплей заблокировали — музыка стартует по первому клику/клавише
-  document.addEventListener('click', tryPlay);
-  document.addEventListener('keydown', tryPlay);
+    var VOLUME = 0.4;                // громкость: 0.0 — 1.0
+    var TRACKS = [                   // порядок поиска файла — первый найденный играет
+      'music.mp3',
+      'music/music.mp3',
+      'music/GTA_V.mp3',
+      'music.ogg',
+      'music/GTA_V.ogg'
+    ];
 
-  function toggleMute() {
-    bgm.muted = !bgm.muted;
-    muteBtn.innerHTML = bgm.muted ? "&#9834; MUSIC: OFF" : "&#9834; MUSIC: ON";
-  }
-  muteBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    toggleMute();
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь') toggleMute();
-  });
+    var track = 0;
+    var mutedByUser = false;
+    var started = false;             // трек реально заиграл хотя бы раз
+    var unlockBound = false;
+
+    bgm.volume = VOLUME;
+    bgm.loop = true;
+
+    function setLabel(html, disabled) {
+      muteBtn.innerHTML = html;
+      muteBtn.disabled = !!disabled;
+      muteBtn.style.opacity = disabled ? '0.45' : '';
+      muteBtn.style.cursor = disabled ? 'default' : 'pointer';
+    }
+
+    function refreshLabel() {
+      if (!started && bgm.paused) {
+        setLabel('&#9834; MUSIC: TAP TO START');
+      } else {
+        setLabel(bgm.muted || mutedByUser ? '&#9834; MUSIC: OFF' : '&#9834; MUSIC: ON');
+      }
+    }
+
+    function play() {
+      if (mutedByUser || !bgm.src) return;
+      bgm.muted = false;
+      var p = bgm.play();
+      if (p && typeof p.then === 'function') {
+        p.then(function () {
+          started = true;
+          refreshLabel();
+        })['catch'](function () {
+          // Браузер ждёт взаимодействия со страницей — включим по первому клику/клавише.
+          bindUnlock();
+          refreshLabel();
+        });
+      } else {
+        // Старые движки (например, встроенный браузер GMod) не возвращают Promise.
+        setTimeout(function () {
+          if (!bgm.paused) { started = true; refreshLabel(); }
+          else bindUnlock();
+        }, 300);
+      }
+    }
+
+    // Снимаем блокировку автоплея по первому жесту пользователя.
+    function bindUnlock() {
+      if (unlockBound) return;
+      unlockBound = true;
+      var evs = ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'click'];
+      function onFirst() {
+        for (var i = 0; i < evs.length; i++) {
+          document.removeEventListener(evs[i], onFirst, true);
+        }
+        unlockBound = false;
+        play();
+      }
+      for (var i = 0; i < evs.length; i++) {
+        document.addEventListener(evs[i], onFirst, true);
+      }
+    }
+
+    function loadTrack() {
+      if (track >= TRACKS.length) {
+        setLabel('&#9834; NO MUSIC FILE', true);
+        if (window.console && console.warn) {
+          console.warn('[Rasmodium] Аудиофайл не найден. Положи music.mp3 рядом с index.html. Искал: ' +
+                       TRACKS.join(', '));
+        }
+        return;
+      }
+      bgm.src = TRACKS[track];
+      try { bgm.load(); } catch (e) {}
+      play();
+    }
+
+    bgm.addEventListener('error', function () {
+      track++;
+      loadTrack();
+    });
+    var readyEvents = ['canplay', 'canplaythrough', 'loadeddata'];
+    for (var r = 0; r < readyEvents.length; r++) {
+      bgm.addEventListener(readyEvents[r], play);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) play();
+    });
+    window.addEventListener('focus', play);
+
+    loadTrack();
+
+    // Повторные попытки: некоторые браузеры разрешают звук чуть позже загрузки страницы.
+    var retries = [0, 250, 1000, 2500, 5000];
+    for (var t = 0; t < retries.length; t++) {
+      setTimeout(play, retries[t]);
+    }
+    setInterval(function () {
+      if (!started && bgm.paused) play();
+    }, 4000);
+
+    // Кнопка и клавиша M: включить / выключить звук.
+    function toggle() {
+      if (bgm.paused) {          // музыка ещё не звучит — этот клик и есть жест пользователя
+        mutedByUser = false;
+        bgm.muted = false;
+        play();
+        return;
+      }
+      mutedByUser = !mutedByUser;
+      bgm.muted = mutedByUser;
+      refreshLabel();
+    }
+
+    muteBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggle();
+    });
+    document.addEventListener('keydown', function (e) {
+      var k = e.key;
+      if (k === 'm' || k === 'M' || k === 'ь' || k === 'Ь' || e.keyCode === 77) toggle();
+    });
+
+    refreshLabel();
+  })();
 </script>
 </body>
 </html>
